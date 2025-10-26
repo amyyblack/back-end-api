@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "TesteFilmes",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
