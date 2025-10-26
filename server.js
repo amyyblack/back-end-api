@@ -181,6 +181,142 @@ app.put("/questoes/:id", async (req, res) => {
   }
 });
 
+// ===================== ROTAS DE FILMES =====================
+
+// GET /filmes → lista todos os filmes
+app.get("/filmes", async (req, res) => {
+  console.log("Rota GET /filmes solicitada");
+  try {
+    const db = conectarBD();
+    const resultado = await db.query("SELECT * FROM filmes ORDER BY id_filme");
+    res.status(200).json(resultado.rows);
+  } catch (e) {
+    console.error("Erro ao buscar filmes:", e);
+    res.status(500).json({ erro: "Erro interno do servidor" });
+  }
+});
+
+// GET /filmes/:id → busca um filme específico
+app.get("/filmes/:id", async (req, res) => {
+  console.log("Rota GET /filmes/:id solicitada");
+  try {
+    const id = req.params.id;
+    const db = conectarBD();
+    const resultado = await db.query("SELECT * FROM filmes WHERE id_filme = $1", [id]);
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ mensagem: "Filme não encontrado" });
+    }
+    res.status(200).json(resultado.rows[0]);
+  } catch (e) {
+    console.error("Erro ao buscar filme:", e);
+    res.status(500).json({ erro: "Erro interno do servidor" });
+  }
+});
+
+// POST /filmes → adiciona um novo filme
+app.post("/filmes", async (req, res) => {
+  console.log("Rota POST /filmes solicitada");
+  try {
+    const data = req.body;
+
+    // Validação simples dos campos obrigatórios
+    if (!data.titulo || !data.ano_lancamento || !data.diretor) {
+      return res.status(400).json({
+        erro: "Campos obrigatórios ausentes",
+        mensagem: "Informe título, ano_lancamento e diretor."
+      });
+    }
+
+    const db = conectarBD();
+    const consulta = `
+      INSERT INTO filmes (titulo, descricao, ano_lancamento, duracao_min, diretor, avaliacao_media, poster_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id_filme;
+    `;
+    const valores = [
+      data.titulo,
+      data.descricao || null,
+      data.ano_lancamento,
+      data.duracao_min || null,
+      data.diretor,
+      data.avaliacao_media || 0,
+      data.poster_url || null,
+    ];
+
+    const resultado = await db.query(consulta, valores);
+    res.status(201).json({
+      mensagem: "Filme cadastrado com sucesso!",
+      id_filme: resultado.rows[0].id_filme,
+    });
+  } catch (e) {
+    console.error("Erro ao inserir filme:", e);
+    res.status(500).json({ erro: "Erro interno do servidor" });
+  }
+});
+
+// PUT /filmes/:id → atualiza dados de um filme
+app.put("/filmes/:id", async (req, res) => {
+  console.log("Rota PUT /filmes/:id solicitada");
+  try {
+    const id = req.params.id;
+    const data = req.body;
+    const db = conectarBD();
+
+    // Busca o filme existente
+    const busca = await db.query("SELECT * FROM filmes WHERE id_filme = $1", [id]);
+    if (busca.rows.length === 0) {
+      return res.status(404).json({ mensagem: "Filme não encontrado" });
+    }
+
+    const filmeAtual = busca.rows[0];
+
+    // Atualiza apenas os campos informados
+    const consulta = `
+      UPDATE filmes
+      SET titulo = $1, descricao = $2, ano_lancamento = $3, duracao_min = $4, 
+          diretor = $5, avaliacao_media = $6, poster_url = $7
+      WHERE id_filme = $8
+    `;
+    const valores = [
+      data.titulo || filmeAtual.titulo,
+      data.descricao || filmeAtual.descricao,
+      data.ano_lancamento || filmeAtual.ano_lancamento,
+      data.duracao_min || filmeAtual.duracao_min,
+      data.diretor || filmeAtual.diretor,
+      data.avaliacao_media ?? filmeAtual.avaliacao_media,
+      data.poster_url || filmeAtual.poster_url,
+      id
+    ];
+
+    await db.query(consulta, valores);
+    res.status(200).json({ mensagem: "Filme atualizado com sucesso!" });
+  } catch (e) {
+    console.error("Erro ao atualizar filme:", e);
+    res.status(500).json({ erro: "Erro interno do servidor" });
+  }
+});
+
+// DELETE /filmes/:id → remove um filme
+app.delete("/filmes/:id", async (req, res) => {
+  console.log("Rota DELETE /filmes/:id solicitada");
+  try {
+    const id = req.params.id;
+    const db = conectarBD();
+
+    const busca = await db.query("SELECT * FROM filmes WHERE id_filme = $1", [id]);
+    if (busca.rows.length === 0) {
+      return res.status(404).json({ mensagem: "Filme não encontrado" });
+    }
+
+    await db.query("DELETE FROM filmes WHERE id_filme = $1", [id]);
+    res.status(200).json({ mensagem: "Filme excluído com sucesso!" });
+  } catch (e) {
+    console.error("Erro ao excluir filme:", e);
+    res.status(500).json({ erro: "Erro interno do servidor" });
+  }
+});
+
+
 app.listen(port, () => {            // Um socket para "escutar" as requisições
   console.log(`Serviço rodando na porta:  ${port}`);
 });
